@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import os
 import random
 import string
@@ -103,6 +104,47 @@ async def cmd_shop(message: types.Message):
         parse_mode="Markdown",
         reply_markup=get_user_keyboard()
     )
+
+
+@dp.message(Command("trial"))
+async def cmd_trial(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("Немає доступу!")
+        return
+
+    args = (message.text or "").split()
+    if len(args) > 2:
+        await message.answer("Використання: `/trial [години]`", parse_mode="Markdown")
+        return
+
+    try:
+        hours = float(args[1]) if len(args) == 2 else 3.0
+    except ValueError:
+        await message.answer("Кількість годин має бути додатним числом.")
+        return
+
+    duration_days = hours / 24
+    duration_ms = duration_days * 24 * 60 * 60 * 1000
+    if (
+        not math.isfinite(hours)
+        or hours <= 0
+        or duration_ms < 1
+        or not math.isfinite(duration_ms)
+    ):
+        await message.answer("Кількість годин має бути додатним скінченним числом.")
+        return
+
+    new_key = generate_key_string("TR")
+    saved = await save_key_to_firebase(new_key, duration_days, ADMIN_ID)
+    if saved:
+        await message.answer(
+            f"✅ **Пробний ключ створено на {hours:g} год.!**\n\n"
+            f"Ваш одноразовий ключ: `{new_key}`\n"
+            f"_(Натисніть на ключ, щоб скопіювати)_",
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer("❌ Помилка збереження у Firebase.")
 
 
 @dp.callback_query(F.data.startswith("admin_gen_"))
